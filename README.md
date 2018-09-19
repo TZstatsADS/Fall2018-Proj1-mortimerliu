@@ -10,7 +10,7 @@ This is the first and only *individual* (as opposed to *team*) this semester.
 Term: Fall 2018
 
 + Projec title: Lorem ipsum dolor sit amet
-+ This project is conducted by [your name]
++ This project is conducted by [hl3148]
 
 + Project summary: [a short summary] Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
 
@@ -26,3 +26,24 @@ proj/
 ```
 
 Please see each subfolder for a README file.
+
+### Project Main Findings
+
+In this data blog, I explore the text in the HappyDB, which contains more than 100,000 happy moments from over 10,000 contributors. In this project, a LDA model using Gibbs sampling with 10 topics is fitted. Then, I plot several bar plots to get more insights into each fitted topics. Finally, I use the LDA model to answer the following questions:
+
++ Which countries have more common happy moments? 
++ What are the differences in happiness between people of different marital status?
+
+### Main report files are linked below
+
++ [Text_Processing.Rmd](doc/)
++ [GR5243_Project 1_hl3148.Rmd](doc/)
++ [GR5243_Project 1_hl3148.html](doc/)
+
+
+
+
+
+
+
+
