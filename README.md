@@ -32,7 +32,13 @@ Please see each subfolder for a README file.
 In this data blog, I explore the text in the HappyDB, which contains more than 100,000 happy moments from over 10,000 contributors. In this project, a LDA model using Gibbs sampling with 10 topics is fitted. Then, I plot several bar plots to get more insights into each fitted topics. Finally, I use the LDA model to answer the following questions:
 
 + Which countries have more common happy moments? 
+++ Most main western countries, like USA, AUS, BGR, FRA, CAN, are in the same cluster. 
+++ For cluster 1, there is only one country, **CRI** or **The Costa Rica**. Perhaps this is due to the culture difference and geographic reason.
+
 + What are the differences in happiness between people of different marital status?
+++ The most popular topics among **single people** are **school**, **pet** and **travel**.
+++ **Married people** are most interested in **Shopping** and **friends**.
+++ For **divorced people**, **Family** is the most popular topics. 
 
 ### Main report files are linked below
 
