@@ -1,0 +1,238 @@
+---
+title: "GR5243 - Project 1 - What made you happy today?"
+author: "hl3148 Hongru Liu"
+output:
+  html_document: default
+  html_notebook: default
+---
+
+## Introduction
+
+In this data blog, I explore the text in the HappyDB, which contains more than 100,000 happy moments from over 10,000 contributors. The most interesting question I think is that "what the most common topics are people interested in?"
+
+In order to answer the previous question, I fit an LDA topic model by using Gibbs sampling, to create a 10-topic LDA model. Then, I plot several bar plots to get more insights into each fitted topics. Finally, I use the LDA model to answer the following questions:
+
++ Which countries have more common happy moments? 
++ What are the differences in happiness between people of different marital status?
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+## Step 0. Check and install needed packages. Load the needed functions.
+
+```{r, message=FALSE, warning=FALSE}
+packages.used=c("rvest", "tibble", "qdap", 
+                "sentimentr", "gplots", "dplyr",
+                "tm", "syuzhet", "factoextra", 
+                "beeswarm", "scales", "RColorBrewer",
+                "RANN", "tm", "topicmodels")
+
+# check packages that need to be installed.
+packages.needed=setdiff(packages.used, 
+                        intersect(installed.packages()[,1], 
+                                  packages.used))
+# install additional packages
+if(length(packages.needed)>0){
+  install.packages(packages.needed, dependencies = TRUE)
+}
+
+# load packages
+library("rvest")
+library("tibble")
+# You may need to run
+# sudo ln -f -s $(/usr/libexec/java_home)/jre/lib/server/libjvm.dylib /usr/local/lib
+# in order to load qdap
+library("qdap")
+library("sentimentr")
+library("gplots")
+library("dplyr")
+library("tm")
+library("syuzhet")
+library("factoextra")
+library("beeswarm")
+library("scales")
+library("RColorBrewer")
+library("RANN")
+library("tm")
+library("topicmodels")
+
+library("LDAvis")
+library("servr")
+library("stringi") 
+library("TraMineR")
+library("tidytext")
+
+source("../lib/plotstacked.R")
+#source("../lib/speechFuncs.R")
+```
+
+## Step 1. Topic Modeling
+
+**Load the processed moments and demographic data.**
+
+```{r}
+processed_moments <- read.csv("../output/processed_moments.csv")
+demographic <- read.csv("../data/demographic.csv")
+```
+
+**Gengerate document-term matrices.**
+
+```{r}
+hm_corpus <- Corpus(VectorSource(processed_moments[,"text"]))
+hm_dtm <- DocumentTermMatrix(hm_corpus)
+dim(hm_dtm)
+```
+ 
+**And remove the empty rows.**
+
+``` {r}
+# Find the sum of words in each Document and remove the empty rows.
+rowTotals <- apply(hm_dtm, 1, sum)
+hm_dtm <- hm_dtm[rowTotals > 0, ]
+processed_moments <- processed_moments[rowTotals > 0, ]
+hm_corpus <- hm_corpus[rowTotals > 0]
+dim(hm_dtm)
+```
+
+**Run LDA**
+
+```{r}
+#Set parameters for Gibbs sampling
+burnin <- 4000
+iter <- 2000
+thin <- 500
+seed <-list(2003,5,63,100001,765)
+nstart <- 5
+best <- TRUE
+
+#Number of topics
+k <- 10
+
+#Run LDA using Gibbs sampling
+hm_ldaOut <-LDA(hm_dtm, k, method="Gibbs", control=list(nstart=nstart, 
+                                                 seed = seed, best=best,
+                                                 burnin = burnin, iter = iter, 
+                                                 thin=thin))
+```
+
+**Write out results to csv files.**
+
+```{r}
+#write out results
+
+#docs to topics
+hm_ldaOut.topics <- as.matrix(topics(hm_ldaOut))
+table(c(1:k, hm_ldaOut.topics))
+write.csv(hm_ldaOut.topics,file=paste("../output/LDAGibbs",k,"DocsToTopics.csv"))
+
+#top 20 terms in each topic
+hm_ldaOut.terms <- as.matrix(terms(hm_ldaOut,20))
+write.csv(hm_ldaOut.terms,file=paste("../output/LDAGibbs",k,"TopicsToTerms.csv"))
+
+#probabilities associated with each topic assignment
+hm_topicProbabilities <- as.data.frame(hm_ldaOut@gamma)
+write.csv(hm_topicProbabilities,file=paste("../output/LDAGibbs",k,"TopicProbabilities.csv"))
+```
+
+## Step 2. Word-topic probabilities
+
+I extract the 60 terms that are most common within each topic and visualize them as bar plots.
+
+```{r}
+hm_terms.beta=hm_ldaOut@beta
+hm_terms.beta=scale(hm_terms.beta)
+hm_topics.terms=NULL
+for(i in 1:k){
+  hm_topics.terms=rbind(hm_topics.terms, hm_ldaOut@terms[order(hm_terms.beta[i,], decreasing = TRUE)[1:7]])
+}
+
+#hm_topics.terms
+hm_ldaOut.terms
+
+hm_topics <- tidy(hm_ldaOut, matrix = "beta")
+hm_top_terms <- hm_topics %>%
+  group_by(topic) %>%
+  top_n(10, beta) %>%
+  ungroup() %>%
+  arrange(topic, -beta)
+
+hm_top_terms %>%
+  mutate(term = reorder(term, beta)) %>%
+  ggplot(aes(term, beta, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  coord_flip()
+
+```
+
+Based on the above plots and the most popular terms, a hashtag is manually assigned to each topic.
+
+```{r}
+hm_topics.hash=c("Shopping", "School", "Family", "Pet", "Life", "SpecialEvent", "Friend", "Enterntainment", "Success", "Travel")
+processed_moments$ldatopic <- as.vector(hm_ldaOut.topics)
+processed_moments$ldahash <- hm_topics.hash[hm_ldaOut.topics]
+
+colnames(hm_topicProbabilities) <- hm_topics.hash
+processed.moments.df <- cbind(processed_moments, hm_topicProbabilities)
+```
+
+## Step 3. Clutser Plot: Which countries have more common happy moments? 
+
+By combining the demographic information and the LDA model, I plot 101 countries into 5 clusters, using the k-means clustering method.
+
+```{r, warning=FALSE}
+country <- NULL
+for (i in 1:nrow(processed.moments.df)) {
+  country[i] <- as.character(demographic[demographic$wid == processed.moments.df$wid[i], "country"])
+}
+
+moments.df <- tbl_df(processed.moments.df)%>%
+  mutate(country = country)%>%
+  select(country, Shopping:Travel)%>%
+  group_by(country)%>%
+  summarise_each(funs(mean))
+
+moments.df=as.data.frame(moments.df)
+rownames(moments.df)=as.character((moments.df[,1]))
+km.res=kmeans(scale(moments.df[,-1]), iter.max=200, 5)
+fviz_cluster(km.res, 
+             stand=T, repel= TRUE,
+             data = moments.df[,-1],
+             show.clust.cent=FALSE)
+```
+
+From the plot above, we can see that, most main western countries, like USA, AUS, BGR, FRA, CAN, are in the same cluster, cluster 5 (the purple one). This is not surprising to me since these countries have the similar culture, history, and lifestyle.
+
+## Step 4. Heatmap: What are differences in happiness between people in different marital status ?
+
+```{r}
+par(mar=c(1,1,1,1))
+
+marital <- NULL
+for (i in 1:nrow(processed.moments.df)) {
+  marital[i] <- as.character(demographic[demographic$wid == processed.moments.df$wid[i], "marital"])
+}
+
+moments.df <- tbl_df(processed.moments.df)%>%
+  mutate(marital = marital)%>%
+  select(marital, Shopping:Travel)%>%
+  group_by(marital)%>%
+  summarise_each(funs(mean))
+moments.df <- as.data.frame(moments.df)
+rownames(moments.df) <- moments.df[,1]
+
+hm_topic.plot=1:10
+print(hm_topics.hash[hm_topic.plot])
+
+heatmap.2(as.matrix(moments.df[,hm_topic.plot+1]), 
+          scale = "column", key=F, 
+          col = colorRampPalette(c("red", "yellow", "green"))(n = 299),
+          cexRow = 0.9, cexCol = 0.9, margins = c(8, 8),
+          trace = "none", density.info = "none")
+```
+
+As we can see from the graph above, all the contributors are divided into six different marital status, separated, single, divorced, married, widowed and undefined (the last row). Not surprisingly, the most popular topics among **single people** are **school**, **pet** and **travel**, since the single people are most likely the younger people or students, and children always love pets. **Married people**, on the contrary, are most interested in **Shopping** and **friends**. But the most uncommon thing I notice is that for **divorced people**, **Family** is the most popular topics.
+
+
+

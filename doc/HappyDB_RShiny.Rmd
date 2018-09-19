@@ -12,6 +12,11 @@ Here, we explore this data set and try to answer the question, "What makes peopl
 ### Step 0 - Load all the required libraries
 
 From the packages' descriptions:
+、
+
+
+
+
 
 + `tidyverse` is an opinionated collection of R packages designed for data science. All packages share an underlying design philosophy, grammar, and data structures;
 + `tidytext` allows text mining using 'dplyr', 'ggplot2', and other tidy tools;
